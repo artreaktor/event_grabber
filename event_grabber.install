@@ -1,0 +1,83 @@
+<?php
+
+/**
+* Implements hook_install().
+*/
+function event_grabber_install() {
+
+}
+
+/**
+* Implements hook_uninstall().
+*/
+function event_grabber_uninstall() {
+  drupal_uninstall_schema('event_grabber');
+}
+
+/**
+ * Implements hook_schema().
+ */
+function event_grabber_schema() {
+  $schema = array();
+
+  $schema['event_grabber'] = array(
+
+    'description' => 'Grabbers.',
+    'fields' => array(
+      'gid' => array(
+        'description' => 'The unique grabber ID.',
+        'type' => 'serial',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'name' => array(
+        'description' => 'The human-readable name.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => FALSE,
+        'default' => '',
+      ),
+      'mashine_name' => array(
+        'description' => 'The mashine name.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'url' => array(
+        'description' => 'Target URL.',
+        'type' => 'varchar',
+        'length' => '255',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'handler' => array(
+        'description' => 'Handler.',
+        'type' => 'varchar',
+        'length' => '128',
+        'not null' => FALSE,
+        'default' => '',
+      ),
+      'cron_job' => array(
+        'description' => 'Settings.',
+        'type' => 'int',
+        'size' => 'small',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'last_run' => array(
+        'description' => 'The UNIX time stamp.',
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+        'disp-size' => 11,
+      ),
+    ),
+    'primary key' => array('gid'),
+  );
+
+  return $schema;
+}

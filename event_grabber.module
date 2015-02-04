@@ -1,0 +1,270 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function event_grabber_menu() {
+  $items['admin/structure/event-grabber'] = array(
+    'title' => 'Event grabber',
+    'page callback' => 'event_grabber_admin_page',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer event grabber'),
+    'description' => 'Configure event grabber.',
+    'file' => 'includes/event_grabber.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/structure/event-grabber/add'] = array(
+    'title' => 'Add event grabber',
+    'page callback' => 'event_grabber_add_page',
+    'access callback' => 'user_access',
+    'access arguments' => array('administer event grabber'),
+    'file' => 'includes/event_grabber.admin.inc',
+    'type' => MENU_LOCAL_ACTION,
+    'weight' => 1,
+  );
+  $items['admin/structure/event-grabber/manage/%/edit'] = array(
+    'title' => 'Edit event grabber',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('event_grabber_entity_form', 4, NULL),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer event grabber'),
+    'file' => 'includes/event_grabber.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+  $items['admin/structure/event-grabber/manage/%/delete'] = array(
+    'title' => 'Delete event grabber',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('event_grabber_delete_confirm', 4),
+    'access callback' => 'user_access',
+    'access arguments' => array('administer event grabber'),
+    'file' => 'includes/event_grabber.admin.inc',
+    'type' => MENU_CALLBACK,
+  );
+
+
+  return $items;
+}
+
+/**
+ * Implements hook_entity_info().
+ */
+function event_grabber_entity_info() {
+
+  $info = array();
+
+  $info['event_grabber'] = array(
+    'label' => t('Event grabber'),
+    'base table' => 'event_grabber',
+    'entity keys' => array(
+      'id' => 'gid',
+    ),
+    'module' => 'event_grabber',
+    'entity class' => 'Entity',
+    'controller class' => 'EntityAPIController',
+    'access arguments' => array('administer event grabber'),
+    'uri callback' => 'entity_class_uri',
+    'admin ui' => array(
+      'path' => 'admin/structure/event-grabber',
+      'controller class' => 'EntityDefaultUIController',
+    ),
+  );
+
+  return $info;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function event_grabber_permission() {
+  $permissions = array(
+    'administer event grabber' => array(
+      'title' => t('Administer event grabber'),
+      'description' => t('Create and edit event grabbers.'),
+      'restrict access' => TRUE,
+    ),
+  );
+
+  return $permissions;
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function event_grabber_theme() {
+  return array(
+    'event_grabber_admin_page' => array(
+      'variables' => array(
+        'grabbers' => NULL,
+      ),
+      'file' => 'includes/event_grabber.admin.inc',
+    ),
+  );
+}
+
+function event_grabber_get_grabbers() {
+  $query = db_select('event_grabber', 'eg');
+  $query->fields('eg');
+  $result = $query->execute()->fetchAllAssoc('gid');
+  $grabbers = array();
+
+  foreach ($result as $row) {
+
+    $row->admin_path = array();
+    $row->admin_path['edit'] = 'admin/structure/event-grabber/manage/' . $row->gid . '/edit';
+    $row->admin_path['delete'] = 'admin/structure/event-grabber/manage/' . $row->gid . '/delete';
+    $grabbers[$row->gid] = $row;
+  }
+  return $grabbers;
+}
+
+
+/**
+ * Defines event timezone by coordinates
+ * and converts time to destination timezone.
+ * @param $latitude, $longitude
+ *   Geographical coordinates.
+ * @param $timestamp
+ *   Local event time (Unix time format, seconds).
+ * @param $dest_timezone
+ *   Valid timezone name according to http://php.net/manual/en/timezones.php
+ */
+function event_grabber_convert_timezone($latitude, $longitude, $timestamp, $dest_timezone = 'Asia/Kolkata') {
+
+  // Use Geonames API to get timezone by coordinates
+  $geonames = 'http://api.geonames.org/timezoneJSON';
+  $q_arr = array(
+    'lat' => $latitude,
+    'lng' => $longitude,
+    'username' => 'artreaktor',
+  );
+
+  $q_str = http_build_query($q_arr);
+  $gn_data = event_grabber_get_web_page($geonames . '?' . $q_str);
+  $tz_data = json_decode($gn_data);
+
+  $eventTimezone = new DateTimeZone($tz_data->timezoneId);
+  $indianTimezone = new DateTimeZone($dest_timezone);
+  $date = new DateTime('now', $eventTimezone);
+  $date->setTimestamp($timestamp);
+  $offset = $indianTimezone->getOffset($date);
+
+  return array(
+    'dest_time' => $timestamp+$offset,
+    'offset' => $offset,
+    'dest_timezone' => $dest_timezone,
+    'timezone_data' => $tz_data,
+  );
+
+}
+
+function event_grabber_save_event($event) {
+
+  $event_entity = event_grabber_event_exists($event);
+
+  if (is_object($event_entity)) {
+
+  }
+  else {
+
+  }
+
+}
+
+/**
+ * Returns event object or FALSE
+ */
+function event_grabber_event_exists($event) {
+  return FALSE;
+}
+
+
+function event_grabber_init() {
+  module_load_include("php", "event_grabber", "simple_html_dom/simple_html_dom");
+}
+
+function event_grabber_get_web_page($url, $post = NULL) {
+  $ch = curl_init($url);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+  if ($post) {
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+  }
+  $data = event_grabber_curl_exec_follow($ch);
+  curl_close($ch);
+  return $data;
+}
+
+
+function event_grabber_curl_exec_follow($ch, &$maxredirect = null) {
+
+  // we emulate a browser here since some websites detect
+  // us as a bot and don't let us do our job
+  $user_agent = "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.7.5)".
+                " Gecko/20041107 Firefox/1.0";
+  curl_setopt($ch, CURLOPT_USERAGENT, $user_agent );
+
+  $mr = $maxredirect === null ? 5 : intval($maxredirect);
+
+  if (filter_var(ini_get('open_basedir'), FILTER_VALIDATE_BOOLEAN) === false
+      && filter_var(ini_get('safe_mode'), FILTER_VALIDATE_BOOLEAN) === false
+  ) {
+
+    //curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $mr > 0);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, $mr);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+  } else {
+
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+
+    if ($mr > 0)
+    {
+      $original_url = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+      $newurl = $original_url;
+
+      $rch = curl_copy_handle($ch);
+
+      curl_setopt($rch, CURLOPT_HEADER, true);
+      curl_setopt($rch, CURLOPT_NOBODY, true);
+      curl_setopt($rch, CURLOPT_FORBID_REUSE, false);
+      do
+      {
+        curl_setopt($rch, CURLOPT_URL, $newurl);
+        $header = curl_exec($rch);
+        if (curl_errno($rch)) {
+          $code = 0;
+        } else {
+          $code = curl_getinfo($rch, CURLINFO_HTTP_CODE);
+          if ($code == 301 || $code == 302) {
+            preg_match('/Location:(.*?)\n/i', $header, $matches);
+            $newurl = trim(array_pop($matches));
+
+            // if no scheme is present then the new url is a
+            // relative path and thus needs some extra care
+            if(!preg_match("/^https?:/i", $newurl)){
+              $newurl = $original_url . $newurl;
+            }
+          } else {
+            $code = 0;
+          }
+        }
+      } while ($code && --$mr);
+
+      curl_close($rch);
+
+      if (!$mr)
+      {
+        if ($maxredirect === null)
+        trigger_error('Too many redirects.', E_USER_WARNING);
+        else
+        $maxredirect = 0;
+
+        return false;
+      }
+      curl_setopt($ch, CURLOPT_URL, $newurl);
+    }
+  }
+  return curl_exec($ch);
+}
